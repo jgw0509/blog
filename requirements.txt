@@ -1,0 +1,32 @@
+# Django 블로그 프로젝트 의존성
+# =============================================
+
+# Django 프레임워크 (LTS 버전)
+Django>=5.0,<5.1
+
+# Django REST Framework - REST API 구현
+djangorestframework>=3.14,<4.0
+
+# PostgreSQL 데이터베이스 어댑터
+psycopg2-binary>=2.9,<3.0
+
+# 환경변수 관리
+python-decouple>=3.8,<4.0
+
+# 이미지 처리 (썸네일, 프로필 이미지)
+Pillow>=10.0,<11.0
+
+# DRF 검색/필터링
+django-filter>=23.0,<24.0
+
+# CORS 헤더 지원 (프론트엔드 분리 시 필요)
+django-cors-headers>=4.3,<5.0
+
+# 보안 강화
+django-csp>=3.7,<4.0
+
+# 정적 파일 서빙 (Production)
+whitenoise>=6.6,<7.0
+
+# Gunicorn WSGI 서버 (Production)
+gunicorn>=21.0,<22.0

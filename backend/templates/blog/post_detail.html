@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ post.title }}{% endblock %}
+{% block meta_description %}{{ post.content|striptags|truncatewords:30 }}{% endblock %}
+
+{% block content %}
+<!--
+==================================================
+게시글 상세 템플릿
+==================================================
+게시글 본문
+댓글 목록
+댓글 작성 폼
+관련 게시글
+==================================================
+-->
+
+<div class="container">
+    <div class="row">
+        <!-- 메인 콘텐츠 -->
+        <div class="col-lg-8">
+            <article class="post-detail">
+                <!-- 게시글 헤더 -->
+                <header class="mb-4">
+                    <!-- 카테고리 -->
+                    {% if post.category %}
+                    <a href="{% url 'blog:category_detail' post.category.slug %}"
+                        class="badge bg-primary text-decoration-none mb-3">
+                        {{ post.category.name }}
+                    </a>
+                    {% endif %}
+
+                    <!-- 제목 -->
+                    <h1 class="h2 mb-3">{{ post.title }}</h1>
+
+                    <!-- 메타 정보 -->
+                    <div class="d-flex flex-wrap gap-3 text-body-secondary small mb-3">
+                        <span>
+                            <a href="{% url 'accounts:profile' post.author.username %}"
+                                class="text-decoration-none text-body-secondary">
+                                {% if post.author.profile_image %}
+                                <img src="{{ post.author.profile_image.url }}" class="rounded-circle me-1" width="24"
+                                    height="24">
+                                {% else %}
+                                <i class="bi bi-person-circle me-1"></i>
+                                {% endif %}
+                                {{ post.author.username }}
+                            </a>
+                        </span>
+                        <span>
+                            <i class="bi bi-calendar me-1"></i>{{ post.created_at|date:"Y년 m월 d일" }}
+                        </span>
+                        <span>
+                            <i class="bi bi-eye me-1"></i>조회 {{ post.views }}
+                        </span>
+                        <span>
+                            <i class="bi bi-chat me-1"></i>댓글 {{ post.get_comment_count }}
+                        </span>
+                    </div>
+
+                    <!-- 수정/삭제 버튼 (작성자만) -->
+                    {% if user == post.author %}
+                    <div class="mb-3">
+                        <a href="{% url 'blog:post_update' post.slug %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil me-1"></i>수정
+                        </a>
+                        <a href="{% url 'blog:post_delete' post.slug %}" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i>삭제
+                        </a>
+                    </div>
+                    {% endif %}
+                </header>
+
+                <!-- 썸네일 -->
+                {% if post.thumbnail %}
+                <figure class="mb-4">
+                    <img src="{{ post.thumbnail.url }}" class="img-fluid rounded shadow-sm" alt="{{ post.title }}">
+                </figure>
+                {% endif %}
+
+                <!-- 게시글 본문 -->
+                <div class="post-content mb-5">
+                    {{ post.content|linebreaks }}
+                </div>
+
+                <!-- 좋아요/싫어요 기능 -->
+                <div class="d-flex justify-content-center gap-3 mb-5">
+                    <button
+                        class="btn {% if user in post.likes.all %}btn-primary{% else %}btn-outline-primary{% endif %} position-relative btn-like"
+                        data-slug="{{ post.slug }}" data-type="post">
+                        <i class="bi bi-hand-thumbs-up me-1"></i> 좋아요
+                        <span class="badge bg-white text-primary ms-1 count">{{ post.likes.count }}</span>
+                    </button>
+                    <button
+                        class="btn {% if user in post.dislikes.all %}btn-danger{% else %}btn-outline-danger{% endif %} position-relative btn-dislike"
+                        data-slug="{{ post.slug }}" data-type="post">
+                        <i class="bi bi-hand-thumbs-down me-1"></i> 싫어요
+                        <span class="badge bg-white text-danger ms-1 count">{{ post.dislikes.count }}</span>
+                    </button>
+                </div>
+
+                <!-- 태그/공유 -->
+                <div class="d-flex justify-content-between align-items-center border-top border-bottom py-3 mb-5">
+                    <div>
+                        {% if post.category %}
+                        <span class="badge bg-secondary">{{ post.category.name }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="text-body-secondary small me-2">공유:</span>
+                        <a href="#" class="btn btn-sm btn-outline-secondary" title="링크 복사" onclick="copyLink()">
+                            <i class="bi bi-link-45deg"></i>
+                        </a>
+                        <a href="https://twitter.com/intent/tweet?url={{ request.build_absolute_uri }}&text={{ post.title }}"
+                            target="_blank" class="btn btn-sm btn-outline-primary" title="트위터 공유">
+                            <i class="bi bi-twitter"></i>
+                        </a>
+                        <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
+                            target="_blank" class="btn btn-sm btn-outline-primary" title="페이스북 공유">
+                            <i class="bi bi-facebook"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 작성자 정보 -->
+                <div class="card shadow-sm mb-5">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            {% if post.author.profile_image %}
+                            <img src="{{ post.author.profile_image.url }}" class="rounded-circle me-3" width="60"
+                                height="60" alt="{{ post.author.username }}">
+                            {% else %}
+                            <div class="bg-secondary rounded-circle me-3 d-flex align-items-center justify-content-center"
+                                style="width: 60px; height: 60px;">
+                                <i class="bi bi-person-fill text-white" style="font-size: 2rem;"></i>
+                            </div>
+                            {% endif %}
+                            <div>
+                                <h5 class="mb-1">
+                                    <a href="{% url 'accounts:profile' post.author.username %}"
+                                        class="text-decoration-none text-body">
+                                        {{ post.author.get_full_name|default:post.author.username }}
+                                    </a>
+                                </h5>
+                                <p class="text-body-secondary small mb-0">
+                                    {% if post.author.bio %}
+                                    {{ post.author.bio|truncatewords:20 }}
+                                    {% else %}
+                                    작성자 소개가 없습니다.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 댓글 섹션 -->
+                <section class="comments-section" id="comments">
+                    <h4 class="mb-4">
+                        <i class="bi bi-chat-dots me-2"></i>
+                        댓글 <span class="badge bg-primary">{{ comments|length }}</span>
+                    </h4>
+
+                    <!-- 댓글 작성 폼 -->
+                    {% if user.is_authenticated %}
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <form action="{% url 'blog:add_comment' post.slug %}" method="post">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <textarea name="content" class="form-control" rows="3" placeholder="댓글을 작성하세요..."
+                                        required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-chat me-1"></i>댓글 작성
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        댓글을 작성하려면 <a href="{% url 'accounts:login' %}?next={{ request.path }}">로그인</a>하세요.
+                    </div>
+                    {% endif %}
+
+                    <!-- 댓글 목록 -->
+                    <div class="comments-list">
+                        {% for comment in comments %}
+                        <div class="card mb-3 {% if not comment.is_active %}opacity-50{% endif %}"
+                            id="comment-{{ comment.id }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        {% if comment.author.profile_image %}
+                                        <img src="{{ comment.author.profile_image.url }}" class="rounded-circle me-2"
+                                            width="32" height="32">
+                                        {% else %}
+                                        <i class="bi bi-person-circle me-2" style="font-size: 1.5rem;"></i>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ comment.author.username }}</strong>
+                                            <br>
+                                            <small class="text-body-secondary">
+                                                {{ comment.created_at|date:"Y.m.d H:i" }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    {% if user == comment.author and comment.is_active %}
+                                    <a href="{% url 'blog:delete_comment' comment.id %}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('댓글을 삭제하시겠습니까?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                <p class="mb-2">{{ comment.content|linebreaks }}</p>
+
+                                <!-- 좋아요/싫어요 및 답글 -->
+                                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <button
+                                        class="btn btn-sm {% if user in comment.likes.all %}text-primary fw-bold{% else %}text-body-secondary{% endif %} btn-like p-0 me-2 border-0 bg-transparent"
+                                        data-id="{{ comment.id }}" data-type="comment">
+                                        <i class="bi bi-hand-thumbs-up"></i>
+                                        <span class="count">{{ comment.likes.count }}</span>
+                                    </button>
+                                    <button
+                                        class="btn btn-sm {% if user in comment.dislikes.all %}text-danger fw-bold{% else %}text-body-secondary{% endif %} btn-dislike p-0 me-3 border-0 bg-transparent"
+                                        data-id="{{ comment.id }}" data-type="comment">
+                                        <i class="bi bi-hand-thumbs-down"></i>
+                                        <span class="count">{{ comment.dislikes.count }}</span>
+                                    </button>
+
+                                    {% if user.is_authenticated and comment.is_active %}
+                                    <button class="btn btn-sm btn-outline-secondary reply-btn"
+                                        data-comment-id="{{ comment.id }}">
+                                        <i class="bi bi-reply me-1"></i>답글
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- 답글 목록 -->
+                                {% for reply in comment.get_replies %}
+                                <div class="card mt-3 ms-4 bg-body-tertiary">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-arrow-return-right me-2 text-body-secondary"></i>
+                                                <strong class="small">{{ reply.author.username }}</strong>
+                                                <small class="text-body-secondary ms-2">
+                                                    {{ reply.created_at|date:"Y.m.d H:i" }}
+                                                </small>
+                                            </div>
+                                            {% if user == reply.author %}
+                                            <a href="{% url 'blog:delete_comment' reply.id %}"
+                                                class="btn btn-sm btn-link text-danger p-0">
+                                                <i class="bi bi-x"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                        <p class="mb-0 small">{{ reply.content }}</p>
+                                    </div>
+                                </div>
+                                {% endfor %}
+
+                                <!-- 답글 폼 (숨김) -->
+                                {% if user.is_authenticated %}
+                                <div class="reply-form mt-3 d-none" id="reply-form-{{ comment.id }}">
+                                    <form action="{% url 'blog:add_comment' post.slug %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                                        <div class="input-group">
+                                            <input type="text" name="content" class="form-control"
+                                                placeholder="답글을 입력하세요..." required>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-send"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-body-secondary py-5">
+                            <i class="bi bi-chat display-4 mb-3 d-block opacity-25"></i>
+                            <p>아직 댓글이 없습니다. 첫 번째 댓글을 작성해보세요!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </article>
+        </div>
+
+        <!-- 사이드바 -->
+        <div class="col-lg-4">
+            <!-- 목차/네비게이션 -->
+            <div class="card shadow-sm mb-4 sticky-top" style="top: 80px;">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-nested me-2"></i>관련 게시글
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for related in related_posts %}
+                    <a href="{{ related.get_absolute_url }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-truncate pe-2">{{ related.title }}</span>
+                            <small class="text-body-secondary">
+                                {{ related.created_at|date:"m/d" }}
+                            </small>
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-body-secondary">
+                        관련 게시글이 없습니다.
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-arrow-left me-1"></i>목록으로
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 좋아요/싫어요 AJAX 핸들러
+    const handleLikeDislike = async (btn) => {
+        {% if not user.is_authenticated %}
+        alert('로그인이 필요합니다.');
+        return;
+        {% endif %}
+
+        const isLike = btn.classList.contains('btn-like');
+        const type = btn.dataset.type;
+        const id = type === 'post' ? btn.dataset.slug : btn.dataset.id;
+
+        let url = '';
+        if (type === 'post') {
+            url = `/blog/${id}/${isLike ? 'like' : 'dislike'}/`;
+        } else {
+            url = `/blog/comment/${id}/${isLike ? 'like' : 'dislike'}/`;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            // 버튼 요소 찾기
+            let likeBtn, dislikeBtn;
+            if (type === 'post') {
+                likeBtn = document.querySelector(`.btn-like[data-slug="${id}"][data-type="post"]`);
+                dislikeBtn = document.querySelector(`.btn-dislike[data-slug="${id}"][data-type="post"]`);
+            } else {
+                // 댓글의 경우 버튼이 클릭된 요소의 형제 요소임
+                const container = btn.parentElement;
+                likeBtn = container.querySelector('.btn-like');
+                dislikeBtn = container.querySelector('.btn-dislike');
+            }
+
+            // 카운트 업데이트
+            likeBtn.querySelector('.count').textContent = data.likes_count;
+            dislikeBtn.querySelector('.count').textContent = data.dislikes_count;
+
+            // 스타일 업데이트
+            if (type === 'post') {
+                if (data.liked) {
+                    likeBtn.classList.replace('btn-outline-primary', 'btn-primary');
+                } else {
+                    likeBtn.classList.replace('btn-primary', 'btn-outline-primary');
+                }
+
+                if (data.disliked) {
+                    dislikeBtn.classList.replace('btn-outline-danger', 'btn-danger');
+                } else {
+                    dislikeBtn.classList.replace('btn-danger', 'btn-outline-danger');
+                }
+
+                // 하나가 활성화되면 다른 하나는 비활성화
+                if (isLike && data.liked) {
+                    dislikeBtn.classList.replace('btn-danger', 'btn-outline-danger');
+                } else if (!isLike && data.disliked) {
+                    likeBtn.classList.replace('btn-primary', 'btn-outline-primary');
+                }
+
+            } else { // 댓글
+                if (data.liked) {
+                    likeBtn.classList.add('text-primary', 'fw-bold');
+                    likeBtn.classList.remove('text-body-secondary');
+                } else {
+                    likeBtn.classList.remove('text-primary', 'fw-bold');
+                    likeBtn.classList.add('text-body-secondary');
+                }
+
+                if (data.disliked) {
+                    dislikeBtn.classList.add('text-danger', 'fw-bold');
+                    dislikeBtn.classList.remove('text-body-secondary');
+                } else {
+                    dislikeBtn.classList.remove('text-danger', 'fw-bold');
+                    dislikeBtn.classList.add('text-body-secondary');
+                }
+
+                if (isLike && data.liked) {
+                    dislikeBtn.classList.remove('text-danger', 'fw-bold');
+                    dislikeBtn.classList.add('text-body-secondary');
+                } else if (!isLike && data.disliked) {
+                    likeBtn.classList.remove('text-primary', 'fw-bold');
+                    likeBtn.classList.add('text-body-secondary');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            // alert('오류가 발생했습니다.'); // 사용자 경험을 위해 조용히 실패하거나 토스트 메시지 등 사용
+        }
+    };
+
+    // 이벤트 리스너 등록
+    document.querySelectorAll('.btn-like, .btn-dislike').forEach(btn => {
+        btn.addEventListener('click', () => handleLikeDislike(btn));
+    });
+
+    // 답글 폼 토글
+    document.querySelectorAll('.reply-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const commentId = this.dataset.commentId;
+            const form = document.getElementById('reply-form-' + commentId);
+            form.classList.toggle('d-none');
+            if (!form.classList.contains('d-none')) {
+                form.querySelector('input[name="content"]').focus();
+            }
+        });
+    });
+
+    // 링크 복사
+    function copyLink() {
+        navigator.clipboard.writeText(window.location.href);
+        alert('링크가 복사되었습니다!');
+    }
+</script>
+{% endblock %}
