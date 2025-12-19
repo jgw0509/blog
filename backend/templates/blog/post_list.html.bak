@@ -5,19 +5,19 @@
 {% block content %}
 <!--
 ==================================================
-게시글 목록 템플릿
+게시글 목록 ?�플�?
 ==================================================
-검색 결과 표시
-카테고리 필터
-페이지네이션
+검??결과 ?�시
+카테고리 ?�터
+?�이지?�이??
 ==================================================
 -->
 
 <div class="container">
     <div class="row">
-        <!-- 메인 콘텐츠 -->
+        <!-- 메인 콘텐�?-->
         <div class="col-lg-8">
-            <!-- 페이지 헤더 -->
+            <!-- ?�이지 ?�더 -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h1 class="h3 mb-1">
@@ -25,28 +25,28 @@
                         {% if current_category %}
                         {{ current_category }} 게시글
                         {% elif search_query %}
-                        "{{ search_query }}" 검색 결과
+                        "{{ search_query }}" 검??결과
                         {% else %}
-                        전체 게시글
+                        ?�체 게시글
                         {% endif %}
                     </h1>
                     <p class="text-body-secondary mb-0">
-                        총 {{ page_obj.paginator.count }}개의 게시글
+                        �?{{ page_obj.paginator.count }}개의 게시글
                     </p>
                 </div>
                 {% if user.is_authenticated %}
                 <a href="{% url 'blog:post_create' %}" class="btn btn-primary">
-                    <i class="bi bi-pencil-square me-1"></i>글쓰기
+                    <i class="bi bi-pencil-square me-1"></i>글?�기
                 </a>
                 {% endif %}
             </div>
 
-            <!-- 검색 및 필터 -->
+            <!-- 검??�??�터 -->
             <div class="card shadow-sm mb-4">
                 <div class="card-body">
                     <form action="{% url 'blog:post_list' %}" method="get" class="row g-3">
                         <div class="col-md-6">
-                            <input type="search" name="q" class="form-control" placeholder="검색어를 입력하세요"
+                            <input type="search" name="q" class="form-control" placeholder="검?�어�??�력?�세??
                                 value="{{ search_query }}">
                         </div>
                         <div class="col-md-3">
@@ -61,13 +61,13 @@
                         </div>
                         <div class="col-md-3">
                             <select name="sort" class="form-select">
-                                <option value="recent" {% if current_sort == 'recent' %}selected{% endif %}>최신순</option>
-                                <option value="likes" {% if current_sort == 'likes' %}selected{% endif %}>좋아요순</option>
+                                <option value="recent" {% if current_sort == 'recent' %}selected{% endif %}>최신??/option>
+                                <option value="likes" {% if current_sort == 'likes' %}selected{% endif %}>좋아?�순</option>
                             </select>
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-search"></i> 검색 및 정렬 적용
+                                <i class="bi bi-search"></i> 검??�??�렬 ?�용
                             </button>
                         </div>
                     </form>
@@ -95,7 +95,7 @@
                                     </a>
                                     {% endif %}
                                     {% if not post.published %}
-                                    <span class="badge bg-warning">비공개</span>
+                                    <span class="badge bg-warning">비공�?/span>
                                     {% endif %}
                                 </div>
 
@@ -133,17 +133,17 @@
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-2"></i>
                     {% if search_query %}
-                    "{{ search_query }}"에 대한 검색 결과가 없습니다.
+                    "{{ search_query }}"???�??검??결과가 ?�습?�다.
                     {% else %}
-                    게시글이 없습니다.
+                    게시글???�습?�다.
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
 
-            <!-- 페이지네이션 -->
+            <!-- ?�이지?�이??-->
             {% if page_obj.has_other_pages %}
-            <nav aria-label="게시글 페이지네이션">
+            <nav aria-label="게시글 ?�이지?�이??>
                 <ul class="pagination justify-content-center">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
@@ -192,7 +192,7 @@
             {% endif %}
         </div>
 
-        <!-- 사이드바 -->
+        <!-- ?�이?�바 -->
         <div class="col-lg-4">
             <!-- 카테고리 -->
             <div class="card shadow-sm mb-4">
@@ -204,7 +204,7 @@
                 <div class="list-group list-group-flush">
                     <a href="{% url 'blog:post_list' %}"
                         class="list-group-item list-group-item-action {% if not current_category %}active{% endif %}">
-                        전체
+                        ?�체
                     </a>
                     {% for cat in categories %}
                     <a href="{% url 'blog:category_detail' cat.slug %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
@@ -216,11 +216,11 @@
                 </div>
             </div>
 
-            <!-- 인기 게시글 -->
+            <!-- ?�기 게시글 -->
             <div class="card shadow-sm">
                 <div class="card-header bg-transparent">
                     <h5 class="mb-0">
-                        <i class="bi bi-fire me-2"></i>인기 게시글
+                        <i class="bi bi-fire me-2"></i>?�기 게시글
                     </h5>
                 </div>
                 <div class="list-group list-group-flush">
@@ -235,7 +235,7 @@
                     </a>
                     {% empty %}
                     <div class="list-group-item text-body-secondary">
-                        인기 게시글이 없습니다.
+                        ?�기 게시글???�습?�다.
                     </div>
                     {% endfor %}
                 </div>

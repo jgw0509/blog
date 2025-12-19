@@ -8,6 +8,7 @@ Blog 앱 - 모델
 - Category: 게시글 카테고리
 - Post: 게시글 (제목, 내용, 작성자, 카테고리 등)
 - Comment: 댓글 (게시글, 작성자, 내용)
+- Bookmark: 북마크 (사용자, 게시글)
 """
 
 from django.db import models
@@ -288,3 +289,42 @@ class Comment(models.Model):
     def is_parent(self):
         """부모 댓글인지 확인"""
         return self.parent is None
+
+
+class Bookmark(models.Model):
+    """
+    북마크 모델
+    
+    사용자가 저장한 게시글
+    UniqueTogether 제약으로 중복 저장 방지
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bookmarks',
+        verbose_name='사용자'
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='bookmarks',
+        verbose_name='게시글'
+    )
+    created_at = models.DateTimeField(
+        '저장일',
+        auto_now_add=True
+    )
+
+    class Meta:
+        verbose_name = '북마크'
+        verbose_name_plural = '북마크 목록'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'post'],
+                name='unique_user_post_bookmark'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.post.title}'

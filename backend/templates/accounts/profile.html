@@ -2,6 +2,23 @@
 
 {% block title %}{{ profile_user.username }} 프로필{% endblock %}
 
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // active_tab 파라미터가 있으면 해당 탭 활성화
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeTab = urlParams.get('active_tab');
+        if (activeTab === 'bookmarks') {
+            const tabEl = document.querySelector('#bookmarks-tab');
+            if (tabEl) {
+                const tab = new bootstrap.Tab(tabEl);
+                tab.show();
+            }
+        }
+    });
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row">
@@ -65,32 +82,136 @@
             </div>
         </div>
 
-        <!-- 작성 게시글 -->
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-transparent">
-                    <h5 class="mb-0">
+        <!-- 탭 네비게이션 -->
+        <div class="col-12 mt-2 mb-4">
+            <ul class="nav nav-pills nav-fill bg-white p-2 rounded shadow-sm" id="profileTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="posts-tab" data-bs-toggle="tab" data-bs-target="#posts-tab-pane"
+                        type="button" role="tab" aria-controls="posts-tab-pane" aria-selected="true">
                         <i class="bi bi-file-text me-2"></i>작성한 게시글
-                    </h5>
-                </div>
-                <div class="list-group list-group-flush">
-                    {% for post in user_posts %}
-                    <a href="{{ post.get_absolute_url }}" class="list-group-item list-group-item-action">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                {% if post.category %}
-                                <span class="badge bg-primary me-2">{{ post.category.name }}</span>
-                                {% endif %}
-                                {{ post.title }}
-                            </div>
-                            <small class="text-body-secondary">{{ post.created_at|date:"Y.m.d" }}</small>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bookmarks-tab" data-bs-toggle="tab"
+                        data-bs-target="#bookmarks-tab-pane" type="button" role="tab" aria-controls="bookmarks-tab-pane"
+                        aria-selected="false">
+                        <i class="bi bi-bookmark-heart me-2"></i>북마크한 게시글
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="tab-content" id="profileTabContent">
+            <!-- 작성한 게시글 탭 -->
+            <div class="tab-pane fade show active" id="posts-tab-pane" role="tabpanel" aria-labelledby="posts-tab"
+                tabindex="0">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">총 {{ user_posts.count }}개의 게시글</h5>
                         </div>
-                    </a>
-                    {% empty %}
-                    <div class="list-group-item text-body-secondary text-center py-4">
-                        작성한 게시글이 없습니다.
+                        <div class="list-group list-group-flush">
+                            {% for post in user_posts %}
+                            <a href="{{ post.get_absolute_url }}" class="list-group-item list-group-item-action py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        {% if post.thumbnail %}
+                                        <img src="{{ post.thumbnail.url }}" class="rounded me-3" width="50" height="50"
+                                            style="object-fit: cover;">
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-1">{{ post.title }}</h6>
+                                            <small class="text-body-secondary">
+                                                {{ post.category.name|default:"미분류" }} · {{ post.created_at|date:"Y.m.d" }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <i class="bi bi-chevron-right text-body-secondary"></i>
+                                </div>
+                            </a>
+                            {% empty %}
+                            <div class="list-group-item text-body-secondary text-center py-5">
+                                <i class="bi bi-journal-x style-muted d-block mb-2" style="font-size: 3rem;"></i>
+                                작성한 게시글이 없습니다.
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
-                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 북마크한 게시글 탭 -->
+            <div class="tab-pane fade" id="bookmarks-tab-pane" role="tabpanel" aria-labelledby="bookmarks-tab"
+                tabindex="0">
+                <div class="col-12">
+                    <!-- 필터 및 검색 바 -->
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <form method="get" class="row g-2 align-items-center">
+                                <input type="hidden" name="active_tab" value="bookmarks">
+                                <div class="col-md-7">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-transparent border-end-0">
+                                            <i class="bi bi-search text-body-secondary"></i>
+                                        </span>
+                                        <input type="text" name="bookmark_q" class="form-control border-start-0 ps-0"
+                                            placeholder="저장한 게시글 검색..." value="{{ bookmark_q }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <select name="bookmark_sort" class="form-select" onchange="this.form.submit()">
+                                        <option value="-created_at" {% if bookmark_sort == '-created_at' %}selected{% endif %}>최신순</option>
+                                        <option value="created_at" {% if bookmark_sort == 'created_at' %}selected{% endif %}>오래된순</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">검색</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        {% for bookmark in bookmarked_posts %}
+                        <div class="col-md-6 col-xl-4">
+                            <div class="card h-100 shadow-sm hover-lift border-0 overflow-hidden">
+                                {% if bookmark.post.thumbnail %}
+                                <img src="{{ bookmark.post.thumbnail.url }}" class="card-img-top"
+                                    alt="{{ bookmark.post.title }}" style="height: 160px; object-fit: cover;">
+                                {% endif %}
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <span class="badge bg-warning text-dark">{{ bookmark.post.category.name|default:"미분류" }}</span>
+                                        <small class="text-body-secondary">{{ bookmark.created_at|date:"Y.m.d" }} 저장</small>
+                                    </div>
+                                    <h6 class="card-title mb-2">
+                                        <a href="{{ bookmark.post.get_absolute_url }}"
+                                            class="text-decoration-none text-dark">
+                                            {{ bookmark.post.title }}
+                                        </a>
+                                    </h6>
+                                    <p class="card-text text-body-secondary small mb-3 text-truncate-2">
+                                        {{ bookmark.post.content|striptags|truncatewords:15 }}
+                                    </p>
+                                    <div class="d-flex align-items-center">
+                                        {% if bookmark.post.author.profile_image %}
+                                        <img src="{{ bookmark.post.author.profile_image.url }}"
+                                            class="rounded-circle me-2" width="24" height="24">
+                                        {% endif %}
+                                        <small class="text-body-secondary">{{ bookmark.post.author.username }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm text-center py-5">
+                                <i class="bi bi-bookmark-x style-muted d-block mb-2" style="font-size: 3rem;"></i>
+                                <p class="text-body-secondary mb-0">북마크한 게시글이 없습니다.</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>

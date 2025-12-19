@@ -13,13 +13,12 @@ from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView, DeleteView
 )
 from django.urls import reverse_lazy
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
-from .models import Category, Post, Comment
+from .models import Category, Post, Comment, Bookmark
 from .forms import PostForm, CommentForm, CategoryForm
-
 
 class PostListView(ListView):
     """
@@ -30,6 +29,7 @@ class PostListView(ListView):
     - 페이지네이션 (10개씩)
     - 카테고리 필터링
     - 검색 기능
+    - 정렬 기능 (최신순/좋아요순)
     """
     model = Post
     template_name = 'blog/post_list.html'
@@ -37,10 +37,11 @@ class PostListView(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        """게시글 쿼리셋 - 필터링 및 검색 적용"""
+        """게시글 쿼리셋 - 필터링, 검색, 정렬 적용"""
         queryset = Post.objects.filter(published=True)\
             .select_related('author', 'category')\
-            .prefetch_related('comments')
+            .prefetch_related('comments')\
+            .annotate(likes_count=Count('likes'))
         
         # 카테고리 필터
         category_slug = self.request.GET.get('category')
@@ -55,15 +56,23 @@ class PostListView(ListView):
                 Q(content__icontains=search_query) |
                 Q(author__username__icontains=search_query)
             )
+            
+        # 정렬 필터
+        sort = self.request.GET.get('sort', 'recent')
+        if sort == 'likes':
+            queryset = queryset.order_by('-likes_count', '-created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
         
         return queryset
     
     def get_context_data(self, **kwargs):
-        """추가 컨텍스트: 카테고리 목록, 검색어"""
+        """추가 컨텍스트: 카테고리 목록, 검색어, 정렬 기준"""
         context = super().get_context_data(**kwargs)
         context['categories'] = Category.objects.all()
         context['search_query'] = self.request.GET.get('q', '')
         context['current_category'] = self.request.GET.get('category', '')
+        context['current_sort'] = self.request.GET.get('sort', 'recent')
         return context
 
 
@@ -349,5 +358,26 @@ def toggle_comment_dislike(request, comment_id):
         'disliked': disliked,
         'likes_count': comment.likes.count(),
         'dislikes_count': comment.dislikes.count()
+    })
+
+
+@login_required
+@require_POST
+def toggle_bookmark(request, slug):
+    """게시글 북마크 토글"""
+    post = get_object_or_404(Post, slug=slug)
+    user = request.user
+    
+    bookmark, created = Bookmark.objects.get_or_create(user=user, post=post)
+    
+    if not created:
+        bookmark.delete()
+        saved = False
+    else:
+        saved = True
+        
+    return JsonResponse({
+        'saved': saved,
+        'message': '북마크에 저장되었습니다.' if saved else '북마크가 취소되었습니다.'
     })
 

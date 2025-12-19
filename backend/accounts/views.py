@@ -6,6 +6,7 @@ Accounts 앱 - 뷰
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Q, Count
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
@@ -90,12 +91,29 @@ class ProfileView(DetailView):
     slug_url_kwarg = 'username'
     
     def get_context_data(self, **kwargs):
-        """추가 컨텍스트: 사용자의 게시글 목록"""
+        """추가 컨텍스트: 사용자의 게시글 목록 및 북마크 목록"""
         context = super().get_context_data(**kwargs)
-        # 작성한 게시글 (최신순 10개)
+        # 작성한 게시글
         context['user_posts'] = self.object.posts.filter(
             published=True
-        ).select_related('category').order_by('-created_at')[:10]
+        ).select_related('category').order_by('-created_at')
+
+        # 북마크한 게시글 (필터링 및 정렬 지원)
+        search_query = self.request.GET.get('bookmark_q', '')
+        sort_order = self.request.GET.get('bookmark_sort', '-created_at') # 기본값: 최신순
+
+        bookmarked_posts = self.object.bookmarks.all()
+        
+        if search_query:
+            bookmarked_posts = bookmarked_posts.filter(
+                Q(post__title__icontains=search_query) | 
+                Q(post__content__icontains=search_query)
+            )
+        
+        context['bookmarked_posts'] = bookmarked_posts.select_related('post', 'post__author', 'post__category').order_by(sort_order)
+        context['bookmark_q'] = search_query
+        context['bookmark_sort'] = sort_order
+        
         return context
 
 

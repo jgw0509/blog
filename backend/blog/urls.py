@@ -44,4 +44,7 @@ urlpatterns = [
     # 댓글 좋아요/싫어요
     path('comment/<int:comment_id>/like/', views.toggle_comment_like, name='comment_like'),
     path('comment/<int:comment_id>/dislike/', views.toggle_comment_dislike, name='comment_dislike'),
+    
+    # 게시글 북마크
+    re_path(r'^(?P<slug>[\w-]+)/bookmark/$', views.toggle_bookmark, name='post_bookmark'),
 ]

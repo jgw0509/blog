@@ -56,6 +56,9 @@
                         <span>
                             <i class="bi bi-chat me-1"></i>댓글 {{ post.get_comment_count }}
                         </span>
+                        <span class="text-primary fw-bold">
+                            <i class="bi bi-clock-history me-1"></i>읽기 시간 약 <span id="readingTimeValue">0</span>분
+                        </span>
                     </div>
 
                     <!-- 수정/삭제 버튼 (작성자만) -->
@@ -107,6 +110,13 @@
                         {% endif %}
                     </div>
                     <div class="d-flex gap-2">
+                        <!-- 북마크 버튼 -->
+                        <button
+                            class="btn btn-sm {% if post.bookmarks.all|slugify == user.username|slugify %}btn-warning{% else %}btn-outline-warning{% endif %} btn-bookmark me-2"
+                            data-slug="{{ post.slug }}" title="북마크">
+                            <i
+                                class="bi {% if user in post.bookmarks.all %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+                        </button>
                         <span class="text-body-secondary small me-2">공유:</span>
                         <a href="#" class="btn btn-sm btn-outline-secondary" title="링크 복사" onclick="copyLink()">
                             <i class="bi bi-link-45deg"></i>
@@ -295,10 +305,28 @@
         <!-- 사이드바 -->
         <div class="col-lg-4">
             <!-- 목차/네비게이션 -->
+            <!-- 목차 (TOC) -->
             <div class="card shadow-sm mb-4 sticky-top" style="top: 80px;">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-task me-2"></i>목차
+                    </h5>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="toc-container">
+                        <!-- JS에서 자동 생성 -->
+                        <div class="text-center py-3 text-body-secondary small">
+                            목차를 생성 중입니다...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 관련 게시글 -->
+            <div class="card shadow-sm mb-4">
                 <div class="card-header bg-transparent">
                     <h5 class="mb-0">
-                        <i class="bi bi-list-nested me-2"></i>관련 게시글
+                        <i class="bi bi-grid-3x3-gap me-2"></i>관련 게시글
                     </h5>
                 </div>
                 <div class="list-group list-group-flush">
@@ -326,16 +354,49 @@
         </div>
     </div>
 </div>
+
+<!-- 플로팅 독서 설정창 -->
+<div class="floating-reader-settings">
+    <div id="readerSettingsPanel" class="reader-settings-panel d-none shadow-lg">
+        <h6 class="mb-3 border-bottom pb-2">독서 환경 설정</h6>
+        <div class="mb-3">
+            <label class="form-label small text-body-secondary">글자 크기</label>
+            <div class="btn-group btn-group-sm w-100" role="group">
+                <button type="button" class="btn btn-outline-secondary font-size-btn" data-size="0.95rem">작게</button>
+                <button type="button" class="btn btn-outline-secondary font-size-btn active"
+                    data-size="1.1rem">보통</button>
+                <button type="button" class="btn btn-outline-secondary font-size-btn" data-size="1.25rem">크게</button>
+            </div>
+        </div>
+        <div class="mb-0">
+            <label class="form-label small text-body-secondary">줄 간격</label>
+            <div class="btn-group btn-group-sm w-100" role="group">
+                <button type="button" class="btn btn-outline-secondary line-height-btn" data-height="1.5">좁게</button>
+                <button type="button" class="btn btn-outline-secondary line-height-btn active"
+                    data-height="1.8">보통</button>
+                <button type="button" class="btn btn-outline-secondary line-height-btn" data-height="2.1">넓게</button>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary shadow-lg rounded-circle" id="toggleReaderSettings" title="독서 설정"
+        style="width: 56px; height: 56px;">
+        <i class="bi bi-type" style="font-size: 1.5rem;"></i>
+    </button>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Django 변수를 JS 상수로 변환
+    const isAuthenticated = "{{ user.is_authenticated|yesno:'true,false' }}" === "true";
+    const csrfToken = "{{ csrf_token }}";
+
     // 좋아요/싫어요 AJAX 핸들러
     const handleLikeDislike = async (btn) => {
-        {% if not user.is_authenticated %}
-        alert('로그인이 필요합니다.');
-        return;
-        {% endif %}
+        if (!isAuthenticated) {
+            alert('로그인이 필요합니다.');
+            return;
+        }
 
         const isLike = btn.classList.contains('btn-like');
         const type = btn.dataset.type;
@@ -352,7 +413,7 @@
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/json'
                 }
             });
@@ -430,9 +491,48 @@
         }
     };
 
+    // 북마크 토글 핸들러
+    const handleBookmark = async (btn) => {
+        if (!isAuthenticated) {
+            alert('로그인이 필요합니다.');
+            return;
+        }
+
+        const slug = btn.dataset.slug;
+        const icon = btn.querySelector('i');
+
+        try {
+            const response = await fetch(`/blog/${slug}/bookmark/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            if (data.saved) {
+                btn.classList.replace('btn-outline-warning', 'btn-warning');
+                icon.classList.replace('bi-bookmark', 'bi-bookmark-fill');
+            } else {
+                btn.classList.replace('btn-warning', 'btn-outline-warning');
+                icon.classList.replace('bi-bookmark-fill', 'bi-bookmark');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+
     // 이벤트 리스너 등록
     document.querySelectorAll('.btn-like, .btn-dislike').forEach(btn => {
         btn.addEventListener('click', () => handleLikeDislike(btn));
+    });
+
+    document.querySelectorAll('.btn-bookmark').forEach(btn => {
+        btn.addEventListener('click', () => handleBookmark(btn));
     });
 
     // 답글 폼 토글
