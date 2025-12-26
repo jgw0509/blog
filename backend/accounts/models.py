@@ -6,10 +6,13 @@ Django의 AbstractUser를 확장하여 추가 필드 제공
 
 모델 구조:
 - User: 커스텀 사용자 모델 (이메일, 프로필 이미지, 자기소개)
+- Follow: 팔로우 관계 모델
+- Notification: 알림 모델
 """
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
@@ -87,3 +90,150 @@ class User(AbstractUser):
     def get_comment_count(self):
         """작성한 댓글 수 반환"""
         return self.comments.count()
+    
+    def get_follower_count(self):
+        """팔로워 수 반환"""
+        return self.followers.count()
+    
+    def get_following_count(self):
+        """팔로잉 수 반환"""
+        return self.following.count()
+    
+    def is_following(self, user):
+        """특정 사용자를 팔로우 중인지 확인"""
+        return self.following.filter(following=user).exists()
+    
+    def get_unread_notification_count(self):
+        """읽지 않은 알림 수 반환"""
+        return self.notifications.filter(is_read=False).count()
+
+
+class Follow(models.Model):
+    """
+    팔로우 관계 모델
+    
+    사용자 간 팔로우/팔로잉 관계를 저장
+    
+    필드:
+    - follower: 팔로우 하는 사용자
+    - following: 팔로우 받는 사용자
+    - created_at: 팔로우 시작일
+    """
+    
+    follower = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='following',
+        verbose_name='팔로워'
+    )
+    following = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='followers',
+        verbose_name='팔로잉'
+    )
+    created_at = models.DateTimeField(
+        '팔로우 시작일',
+        auto_now_add=True
+    )
+    
+    class Meta:
+        verbose_name = '팔로우'
+        verbose_name_plural = '팔로우 목록'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['follower', 'following'],
+                name='unique_follow'
+            )
+        ]
+    
+    def __str__(self):
+        return f'{self.follower.username} → {self.following.username}'
+
+
+class Notification(models.Model):
+    """
+    알림 모델
+    
+    사용자에게 전달되는 알림
+    
+    필드:
+    - recipient: 알림 받는 사용자
+    - sender: 알림 발생시킨 사용자
+    - notification_type: 알림 종류
+    - post: 관련 게시글 (Optional)
+    - comment: 관련 댓글 (Optional)
+    - message: 알림 메시지
+    - is_read: 읽음 여부
+    - created_at: 생성일
+    """
+    
+    NOTIFICATION_TYPES = [
+        ('comment', '댓글'),
+        ('reply', '대댓글'),
+        ('like', '좋아요'),
+        ('follow', '팔로우'),
+        ('new_post', '새 게시글'),
+    ]
+    
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name='수신자'
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sent_notifications',
+        verbose_name='발신자'
+    )
+    notification_type = models.CharField(
+        '알림 종류',
+        max_length=20,
+        choices=NOTIFICATION_TYPES
+    )
+    post = models.ForeignKey(
+        'blog.Post',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+        verbose_name='게시글'
+    )
+    comment = models.ForeignKey(
+        'blog.Comment',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+        verbose_name='댓글'
+    )
+    message = models.CharField(
+        '알림 메시지',
+        max_length=255
+    )
+    is_read = models.BooleanField(
+        '읽음',
+        default=False
+    )
+    created_at = models.DateTimeField(
+        '생성일',
+        auto_now_add=True
+    )
+    
+    class Meta:
+        verbose_name = '알림'
+        verbose_name_plural = '알림 목록'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f'{self.recipient.username}: {self.message[:30]}'
+    
+    def mark_as_read(self):
+        """알림을 읽음으로 표시"""
+        if not self.is_read:
+            self.is_read = True
+            self.save(update_fields=['is_read'])
+

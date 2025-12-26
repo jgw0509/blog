@@ -2,7 +2,7 @@
 Accounts 앱 - 뷰
 ================
 사용자 인증 관련 뷰 정의
-회원가입, 로그인, 로그아웃, 프로필 뷰
+회원가입, 로그인, 로그아웃, 프로필, 팔로우, 알림 뷰
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -11,10 +11,12 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib import messages
-from django.views.generic import CreateView, DetailView, UpdateView
+from django.views.generic import CreateView, DetailView, UpdateView, ListView
 from django.urls import reverse_lazy
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
-from .models import User
+from .models import User, Follow, Notification
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, UserProfileForm
 
 
@@ -114,6 +116,16 @@ class ProfileView(DetailView):
         context['bookmark_q'] = search_query
         context['bookmark_sort'] = sort_order
         
+        # 팔로우 상태
+        if self.request.user.is_authenticated and self.request.user != self.object:
+            context['is_following'] = self.request.user.is_following(self.object)
+        else:
+            context['is_following'] = False
+        
+        # 팔로워/팔로잉 수
+        context['follower_count'] = self.object.get_follower_count()
+        context['following_count'] = self.object.get_following_count()
+        
         return context
 
 
@@ -143,3 +155,125 @@ class ProfileUpdateView(UpdateView):
     def form_valid(self, form):
         messages.success(self.request, '프로필이 수정되었습니다.')
         return super().form_valid(form)
+
+
+# ==================== 팔로우 관련 뷰 ====================
+
+@login_required
+@require_POST
+def toggle_follow(request, username):
+    """팔로우/언팔로우 토글"""
+    target_user = get_object_or_404(User, username=username)
+    
+    if request.user == target_user:
+        return JsonResponse({
+            'success': False,
+            'message': '자기 자신을 팔로우할 수 없습니다.'
+        }, status=400)
+    
+    follow, created = Follow.objects.get_or_create(
+        follower=request.user,
+        following=target_user
+    )
+    
+    if not created:
+        follow.delete()
+        following = False
+        message = f'{target_user.username}님 팔로우를 취소했습니다.'
+    else:
+        following = True
+        message = f'{target_user.username}님을 팔로우합니다.'
+        # 알림 생성
+        Notification.objects.create(
+            recipient=target_user,
+            sender=request.user,
+            notification_type='follow',
+            message=f'{request.user.username}님이 회원님을 팔로우합니다.'
+        )
+    
+    return JsonResponse({
+        'success': True,
+        'following': following,
+        'follower_count': target_user.get_follower_count(),
+        'message': message
+    })
+
+
+@login_required
+def follower_list(request, username):
+    """팔로워 목록"""
+    user = get_object_or_404(User, username=username)
+    followers = user.followers.select_related('follower').order_by('-created_at')
+    
+    return render(request, 'accounts/follower_list.html', {
+        'profile_user': user,
+        'followers': followers
+    })
+
+
+@login_required
+def following_list(request, username):
+    """팔로잉 목록"""
+    user = get_object_or_404(User, username=username)
+    following = user.following.select_related('following').order_by('-created_at')
+    
+    return render(request, 'accounts/following_list.html', {
+        'profile_user': user,
+        'following': following
+    })
+
+
+# ==================== 알림 관련 뷰 ====================
+
+@login_required
+def notification_list(request):
+    """알림 목록"""
+    notifications = request.user.notifications.select_related(
+        'sender', 'post', 'comment'
+    ).order_by('-created_at')[:50]
+    
+    unread_count = request.user.get_unread_notification_count()
+    
+    return render(request, 'accounts/notification_list.html', {
+        'notifications': notifications,
+        'unread_count': unread_count
+    })
+
+
+@login_required
+@require_POST
+def mark_notification_read(request, pk):
+    """알림 읽음 처리"""
+    notification = get_object_or_404(
+        Notification, pk=pk, recipient=request.user
+    )
+    notification.mark_as_read()
+    
+    return JsonResponse({
+        'success': True,
+        'unread_count': request.user.get_unread_notification_count()
+    })
+
+
+@login_required
+@require_POST
+def mark_all_notifications_read(request):
+    """모든 알림 읽음 처리"""
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    
+    return JsonResponse({
+        'success': True,
+        'message': '모든 알림을 읽음 처리했습니다.'
+    })
+
+
+@login_required
+def delete_notification(request, pk):
+    """알림 삭제"""
+    notification = get_object_or_404(
+        Notification, pk=pk, recipient=request.user
+    )
+    notification.delete()
+    messages.success(request, '알림이 삭제되었습니다.')
+    return redirect('accounts:notification_list')
+

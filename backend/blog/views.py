@@ -1,24 +1,26 @@
 """
 Blog 앱 - 뷰
 ============
-게시글, 댓글, 카테고리 관련 뷰
+게시글, 댓글, 카테고리, 태그, 시리즈 관련 뷰
 Class-Based Views 사용
 """
 
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.generic import (
-    ListView, DetailView, CreateView, UpdateView, DeleteView
+    ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
 )
-from django.urls import reverse_lazy
-from django.db.models import Q, Count
+from django.urls import reverse_lazy, reverse
+from django.db.models import Q, Count, Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 
-from .models import Category, Post, Comment, Bookmark
-from .forms import PostForm, CommentForm, CategoryForm
+from .models import Category, Post, Comment, Bookmark, Tag, PostSeries
+from .forms import PostForm, CommentForm, CategoryForm, PostSeriesForm
 
 class PostListView(ListView):
     """
@@ -67,12 +69,14 @@ class PostListView(ListView):
         return queryset
     
     def get_context_data(self, **kwargs):
-        """추가 컨텍스트: 카테고리 목록, 검색어, 정렬 기준"""
+        """추가 컨텍스트: 카테고리 목록, 검색어, 정렬 기준, 인기 게시글"""
         context = super().get_context_data(**kwargs)
         context['categories'] = Category.objects.all()
         context['search_query'] = self.request.GET.get('q', '')
         context['current_category'] = self.request.GET.get('category', '')
         context['current_sort'] = self.request.GET.get('sort', 'recent')
+        # 인기 게시글 (조회수 상위 5개)
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
         return context
 
 
@@ -128,6 +132,12 @@ class PostCreateView(LoginRequiredMixin, CreateView):
     form_class = PostForm
     template_name = 'blog/post_form.html'
     
+    def get_form_kwargs(self):
+        """폼에 현재 사용자 전달"""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
     def form_valid(self, form):
         """작성자를 현재 사용자로 설정"""
         form.instance.author = self.request.user
@@ -140,17 +150,23 @@ class PostUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     게시글 수정 뷰
     
     로그인 필수
-    본인 게시글만 수정 가능
+    본인 게시글이거나 관리자인 경우 수정 가능
     """
     model = Post
     form_class = PostForm
     template_name = 'blog/post_form.html'
     slug_url_kwarg = 'slug'
     
+    def get_form_kwargs(self):
+        """폼에 현재 사용자 전달"""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
     def test_func(self):
-        """본인 게시글인지 확인"""
+        """본인 게시글이거나 관리자인지 확인"""
         post = self.get_object()
-        return self.request.user == post.author
+        return self.request.user == post.author or self.request.user.is_staff
     
     def form_valid(self, form):
         messages.success(self.request, '게시글이 수정되었습니다.')
@@ -162,7 +178,7 @@ class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     게시글 삭제 뷰
     
     로그인 필수
-    본인 게시글만 삭제 가능
+    본인 게시글이거나 관리자인 경우 삭제 가능
     """
     model = Post
     template_name = 'blog/post_confirm_delete.html'
@@ -170,9 +186,9 @@ class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     slug_url_kwarg = 'slug'
     
     def test_func(self):
-        """본인 게시글인지 확인"""
+        """본인 게시글이거나 관리자인지 확인"""
         post = self.get_object()
-        return self.request.user == post.author
+        return self.request.user == post.author or self.request.user.is_staff
     
     def delete(self, request, *args, **kwargs):
         messages.success(request, '게시글이 삭제되었습니다.')
@@ -198,6 +214,8 @@ class CategoryDetailView(ListView):
         context = super().get_context_data(**kwargs)
         context['category'] = self.category
         context['categories'] = Category.objects.all()
+        # 인기 게시글 (조회수 상위 5개)
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
         return context
 
 
@@ -239,7 +257,7 @@ def delete_comment(request, comment_id):
     """
     comment = get_object_or_404(Comment, id=comment_id)
     
-    if comment.author != request.user:
+    if comment.author != request.user and not request.user.is_staff:
         messages.error(request, '본인의 댓글만 삭제할 수 있습니다.')
     else:
         comment.is_active = False
@@ -381,3 +399,191 @@ def toggle_bookmark(request, slug):
         'message': '북마크에 저장되었습니다.' if saved else '북마크가 취소되었습니다.'
     })
 
+
+class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    관리자 대시보드 뷰
+    
+    기능:
+    - 전체 게시글, 댓글, 사용자, 조회수 통계 표시
+    - 최근 게시글 현황 목록
+    - 관리자 퀵 메뉴 제공
+    """
+    template_name = 'blog/admin_dashboard.html'
+    
+    def test_func(self):
+        """관리자(staff) 권한 확인"""
+        return self.request.user.is_staff
+        
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from accounts.models import User
+        
+        # 기본 통계
+        context['total_posts'] = Post.objects.count()
+        context['total_comments'] = Comment.objects.filter(is_active=True).count()
+        context['total_users'] = User.objects.count()
+        context['total_views'] = Post.objects.aggregate(Sum('views'))['views__sum'] or 0
+        
+        # 최근 게시글 (미발행 포함)
+        context['recent_posts'] = Post.objects.select_related('author', 'category')\
+            .order_by('-created_at')[:10]
+        
+        # 최근 댓글
+        context['recent_comments'] = Comment.objects.select_related('author', 'post')\
+            .filter(is_active=True).order_by('-created_at')[:10]
+            
+        return context
+
+
+# ==================== 태그 관련 뷰 ====================
+
+class TagListView(ListView):
+    """태그 목록 뷰 (태그 클라우드)"""
+    model = Tag
+    template_name = 'blog/tag_list.html'
+    context_object_name = 'tags'
+    
+    def get_queryset(self):
+        return Tag.objects.annotate(
+            post_count=Count('posts', filter=Q(posts__published=True))
+        ).filter(post_count__gt=0).order_by('-post_count')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
+        return context
+
+
+class TagDetailView(ListView):
+    """태그별 게시글 목록 뷰"""
+    model = Post
+    template_name = 'blog/tag_detail.html'
+    context_object_name = 'posts'
+    paginate_by = 10
+    
+    def get_queryset(self):
+        self.tag = get_object_or_404(Tag, slug=self.kwargs['slug'])
+        return Post.objects.filter(
+            tags=self.tag, published=True
+        ).select_related('author', 'category').order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['tag'] = self.tag
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
+        return context
+
+
+# ==================== 시리즈 관련 뷰 ====================
+
+class SeriesListView(ListView):
+    """시리즈 목록 뷰"""
+    model = PostSeries
+    template_name = 'blog/series_list.html'
+    context_object_name = 'series_list'
+    
+    def get_queryset(self):
+        return PostSeries.objects.annotate(
+            post_count=Count('posts', filter=Q(posts__published=True))
+        ).filter(post_count__gt=0).select_related('author').order_by('-updated_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
+        return context
+
+
+class SeriesDetailView(DetailView):
+    """시리즈 상세 뷰 (목차 포함)"""
+    model = PostSeries
+    template_name = 'blog/series_detail.html'
+    context_object_name = 'series'
+    slug_url_kwarg = 'slug'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['posts'] = self.object.get_posts()
+        context['popular_posts'] = Post.objects.filter(published=True).order_by('-views')[:5]
+        return context
+
+
+class SeriesCreateView(LoginRequiredMixin, CreateView):
+    """시리즈 생성 뷰"""
+    model = PostSeries
+    form_class = PostSeriesForm
+    template_name = 'blog/series_form.html'
+    
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        messages.success(self.request, '새 시리즈가 생성되었습니다.')
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse('blog:series_detail', kwargs={'slug': self.object.slug})
+
+
+# ==================== 임시저장 관련 뷰 ====================
+
+@login_required
+def draft_list(request):
+    """임시저장 글 목록"""
+    drafts = Post.objects.filter(
+        author=request.user,
+        is_draft=True
+    ).order_by('-draft_saved_at', '-updated_at')
+    
+    return render(request, 'blog/draft_list.html', {
+        'drafts': drafts
+    })
+
+
+@login_required
+@require_POST
+def auto_save_post(request):
+    """게시글 자동 저장 API"""
+    try:
+        data = json.loads(request.body)
+        post_id = data.get('post_id')
+        title = data.get('title', '')
+        content = data.get('content', '')
+        
+        if post_id:
+            # 기존 글 업데이트
+            post = get_object_or_404(Post, id=post_id, author=request.user)
+            post.title = title or post.title
+            post.content = content or post.content
+        else:
+            # 새 임시글 생성
+            post = Post(
+                author=request.user,
+                title=title or '제목 없음',
+                content=content,
+                is_draft=True,
+                published=False
+            )
+        
+        post.is_draft = True
+        post.draft_saved_at = timezone.now()
+        post.save()
+        
+        return JsonResponse({
+            'success': True,
+            'post_id': post.id,
+            'saved_at': post.draft_saved_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'message': '자동 저장되었습니다.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=400)
+
+
+@login_required
+def delete_draft(request, post_id):
+    """임시저장 글 삭제"""
+    post = get_object_or_404(Post, id=post_id, author=request.user, is_draft=True)
+    post.delete()
+    messages.success(request, '임시저장 글이 삭제되었습니다.')
+    return redirect('blog:draft_list')

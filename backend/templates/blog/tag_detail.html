@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tag.name }} 태그{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- 메인 콘텐츠 -->
+        <div class="col-lg-8">
+            <!-- 태그 헤더 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center py-4">
+                    <h2>
+                        <i class="bi bi-tag-fill text-primary me-2"></i>{{ tag.name }}
+                    </h2>
+                    <p class="text-muted mb-0">{{ posts.count }}개의 게시글</p>
+                </div>
+            </div>
+
+            <!-- 게시글 목록 -->
+            {% for post in posts %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{{ post.get_absolute_url }}" class="text-decoration-none">
+                            {{ post.title }}
+                        </a>
+                    </h5>
+                    <p class="card-text text-muted">
+                        {{ post.content|striptags|truncatewords:30 }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <a href="{% url 'accounts:profile' post.author.username %}" class="text-decoration-none">
+                                {{ post.author.username }}
+                            </a>
+                            · {{ post.created_at|date:"Y.m.d" }}
+                        </small>
+                        <div>
+                            <span class="badge bg-secondary me-1">
+                                <i class="bi bi-eye"></i> {{ post.views }}
+                            </span>
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-chat"></i> {{ post.get_comment_count }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-3">이 태그의 게시글이 없습니다.</p>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- 페이지네이션 -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">이전</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">다음</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <!-- 사이드바 -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-tags me-2"></i>전체 태그</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'blog:tag_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>태그 목록 보기
+                    </a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-fire me-2"></i>인기 게시글</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for post in popular_posts %}
+                    <a href="{{ post.get_absolute_url }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-truncate me-2">{{ post.title }}</span>
+                            <small class="text-muted"><i class="bi bi-eye"></i> {{ post.views }}</small>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

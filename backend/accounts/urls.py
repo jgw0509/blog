@@ -24,4 +24,16 @@ urlpatterns = [
     
     # 프로필 수정
     path('profile/<str:username>/edit/', views.ProfileUpdateView.as_view(), name='profile_edit'),
+    
+    # ==================== 팔로우 관련 URL ====================
+    path('profile/<str:username>/follow/', views.toggle_follow, name='toggle_follow'),
+    path('profile/<str:username>/followers/', views.follower_list, name='follower_list'),
+    path('profile/<str:username>/following/', views.following_list, name='following_list'),
+    
+    # ==================== 알림 관련 URL ====================
+    path('notifications/', views.notification_list, name='notification_list'),
+    path('notifications/<int:pk>/read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/read-all/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('notifications/<int:pk>/delete/', views.delete_notification, name='delete_notification'),
 ]
+

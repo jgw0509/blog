@@ -56,7 +56,7 @@
                         <span>
                             <i class="bi bi-chat me-1"></i>댓글 {{ post.get_comment_count }}
                         </span>
-                        <span class="text-primary fw-bold">
+                        <span class="text-primary fw-bold" id="readingTime">
                             <i class="bi bi-clock-history me-1"></i>읽기 시간 약 <span id="readingTimeValue">0</span>분
                         </span>
                     </div>
@@ -83,7 +83,7 @@
 
                 <!-- 게시글 본문 -->
                 <div class="post-content mb-5">
-                    {{ post.content|linebreaks }}
+                    {{ post.content|safe }}
                 </div>
 
                 <!-- 좋아요/싫어요 기능 -->

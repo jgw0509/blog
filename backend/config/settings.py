@@ -58,6 +58,9 @@ INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',  # 사용자 인증
     'blog.apps.BlogConfig',          # 블로그 핵심 기능
     'api.apps.ApiConfig',            # REST API
+    
+    # 에디터
+    'django_summernote',
 ]
 
 # ===========================================
@@ -258,6 +261,28 @@ if not DEBUG:
     
     # X-Frame-Options
     X_FRAME_OPTIONS = 'DENY'
+
+# Summernote 설정
+SUMMERNOTE_CONFIG = {
+    'iframe': True,
+    'summernote': {
+        'width': '100%',
+        'height': '400',
+        'lang': 'ko-KR',  # 한국어 설정
+        'toolbar': [
+            ['style', ['style']],
+            ['font', ['bold', 'italic', 'underline', 'clear']],
+            ['fontname', ['fontname']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['table', ['table']],
+            ['insert', ['link', 'picture', 'video']],
+            ['view', ['fullscreen', 'codeview', 'help']],
+        ],
+    },
+}
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # ===========================================
 # 로깅 설정

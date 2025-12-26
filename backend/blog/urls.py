@@ -10,6 +10,9 @@ from . import views
 app_name = 'blog'
 
 urlpatterns = [
+    # 관리자 대시보드
+    path('admin-dashboard/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    
     # 게시글 목록
     path('', views.PostListView.as_view(), name='post_list'),
     
@@ -19,8 +22,22 @@ urlpatterns = [
     # 카테고리 생성
     path('category/create/', views.CategoryCreateView.as_view(), name='category_create'),
     
-    # 카테고리별 목록 (create 및 comment 전에 배치)
+    # 카테고리별 목록
     re_path(r'^category/(?P<slug>[\w-]+)/$', views.CategoryDetailView.as_view(), name='category_detail'),
+    
+    # ==================== 태그 관련 URL ====================
+    path('tags/', views.TagListView.as_view(), name='tag_list'),
+    re_path(r'^tag/(?P<slug>[\w-]+)/$', views.TagDetailView.as_view(), name='tag_detail'),
+    
+    # ==================== 시리즈 관련 URL ====================
+    path('series/', views.SeriesListView.as_view(), name='series_list'),
+    path('series/create/', views.SeriesCreateView.as_view(), name='series_create'),
+    re_path(r'^series/(?P<slug>[\w-]+)/$', views.SeriesDetailView.as_view(), name='series_detail'),
+    
+    # ==================== 임시저장 관련 URL ====================
+    path('drafts/', views.draft_list, name='draft_list'),
+    path('draft/<int:post_id>/delete/', views.delete_draft, name='delete_draft'),
+    path('api/auto-save/', views.auto_save_post, name='auto_save'),
     
     # 댓글 삭제
     path('comment/<int:comment_id>/delete/', views.delete_comment, name='delete_comment'),
@@ -48,3 +65,4 @@ urlpatterns = [
     # 게시글 북마크
     re_path(r'^(?P<slug>[\w-]+)/bookmark/$', views.toggle_bookmark, name='post_bookmark'),
 ]
+

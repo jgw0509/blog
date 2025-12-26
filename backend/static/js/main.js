@@ -57,12 +57,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const toggleReaderSettingsBtn = document.getElementById('toggleReaderSettings');
     const readerSettingsPanel = document.getElementById('readerSettingsPanel');
     if (toggleReaderSettingsBtn && readerSettingsPanel) {
-        toggleReaderSettingsBtn.addEventListener('click', function(e) {
+        toggleReaderSettingsBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             readerSettingsPanel.classList.toggle('d-none');
         });
-        
-        document.addEventListener('click', function(e) {
+
+        document.addEventListener('click', function (e) {
             if (!readerSettingsPanel.contains(e.target) && e.target !== toggleReaderSettingsBtn) {
                 readerSettingsPanel.classList.add('d-none');
             }
@@ -77,21 +77,21 @@ document.addEventListener('DOMContentLoaded', function () {
             const nextIndex = (currentIndex + 1) % themes.length;
             currentTheme = themes[nextIndex];
             applyTheme(currentTheme);
-    // 독서 설정창 토글
-    const toggleReaderSettingsBtn = document.getElementById('toggleReaderSettings');
-    const readerSettingsPanel = document.getElementById('readerSettingsPanel');
-    if (toggleReaderSettingsBtn && readerSettingsPanel) {
-        toggleReaderSettingsBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            readerSettingsPanel.classList.toggle('d-none');
-        });
-        
-        document.addEventListener('click', function(e) {
-            if (!readerSettingsPanel.contains(e.target) && e.target !== toggleReaderSettingsBtn) {
-                readerSettingsPanel.classList.add('d-none');
+            // 독서 설정창 토글
+            const toggleReaderSettingsBtn = document.getElementById('toggleReaderSettings');
+            const readerSettingsPanel = document.getElementById('readerSettingsPanel');
+            if (toggleReaderSettingsBtn && readerSettingsPanel) {
+                toggleReaderSettingsBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    readerSettingsPanel.classList.toggle('d-none');
+                });
+
+                document.addEventListener('click', function (e) {
+                    if (!readerSettingsPanel.contains(e.target) && e.target !== toggleReaderSettingsBtn) {
+                        readerSettingsPanel.classList.add('d-none');
+                    }
+                });
             }
-        });
-    }
 
         });
     }
@@ -261,15 +261,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const postContent = document.querySelector('.post-content');
     const readingTimeValue = document.getElementById('readingTimeValue');
-    if (postContent && readingTimeValue) {
+    const readingTime = document.getElementById('readingTime');
+    if (postContent && readingTimeValue && readingTime) {
         const text = postContent.innerText;
         const wpm = 225; // 평균 읽기 속도
         const words = text.trim().split(/\s+/).length;
         const time = Math.ceil(words / wpm);
-        readingTimeValue.innerText = time;
+
+        if (words > 0 && words < wpm) {
+            readingTime.innerHTML = '<i class="bi bi-clock-history me-1"></i>예상 읽기 시간 1분 미만';
+        } else {
+            readingTimeValue.innerText = time;
+        }
     }
 
-    
+
     // ===========================================
     // 목차 (TOC) 자동 생성
     // ===========================================
@@ -286,13 +292,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 link.href = `#${id}`;
                 link.innerText = heading.innerText;
                 link.className = `toc-link toc-${heading.tagName.toLowerCase()}`;
-                
+
                 // 스크롤 이동 시 부드럽게
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     heading.scrollIntoView({ behavior: 'smooth' });
                 });
-                
+
                 tocList.appendChild(link);
             });
             tocContainer.innerHTML = '<h6 class="mb-3">목차</h6>';
@@ -307,32 +313,32 @@ document.addEventListener('DOMContentLoaded', function () {
     // 텍스트 하이라이트 시스템
     // ===========================================
     if (postContent) {
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('mouseup', function () {
             const selection = window.getSelection();
             const selectedText = selection.toString().trim();
-            
+
             if (selectedText.length > 0) {
                 // 여기서 툴팁을 띄울 수도 있지만, 우선 콘솔이나 간단한 스타일 적용 로직 확인
                 // (사용자 요청: 형광펜 3색 등 적용 가능한 UI 필요)
             }
         });
     }
-    
+
     // ===========================================
     // 하이라이트 툴팁 로직
     // ===========================================
     const tooltip = document.getElementById('selectionTooltip');
     const postContentArea = document.querySelector('.post-content');
-    
+
     if (postContentArea && tooltip) {
-        document.addEventListener('mouseup', function(e) {
+        document.addEventListener('mouseup', function (e) {
             const selection = window.getSelection();
             const text = selection.toString().trim();
-            
+
             if (text.length > 0 && postContentArea.contains(selection.anchorNode)) {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
-                
+
                 tooltip.style.left = `${rect.left + (rect.width / 2) - 80}px`;
                 tooltip.style.top = `${rect.top + window.scrollY - 60}px`;
                 tooltip.classList.remove('d-none');
@@ -344,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         tooltip.querySelectorAll('.highlight-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
+            btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const color = btn.dataset.color;
                 applyHighlight(`highlight-${color}`);
@@ -352,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         tooltip.querySelectorAll('.format-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
+            btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const format = btn.dataset.format;
                 if (format === 'italic') document.execCommand('italic');
@@ -363,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function applyHighlight(className) {
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
-            
+
             const range = selection.getRangeAt(0);
             const span = document.createElement('span');
             span.className = className;

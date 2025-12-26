@@ -2,10 +2,12 @@
 Blog 앱 - 모델
 ==============
 블로그 핵심 모델 정의
-게시글, 댓글, 카테고리 모델
+게시글, 댓글, 카테고리, 태그, 시리즈 모델
 
 모델 구조:
 - Category: 게시글 카테고리
+- Tag: 게시글 태그
+- PostSeries: 게시글 시리즈/연재
 - Post: 게시글 (제목, 내용, 작성자, 카테고리 등)
 - Comment: 댓글 (게시글, 작성자, 내용)
 - Bookmark: 북마크 (사용자, 게시글)
@@ -16,6 +18,132 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.conf import settings
+
+
+class Tag(models.Model):
+    """
+    태그 모델
+    
+    게시글에 붙이는 태그
+    여러 게시글에 동일한 태그 적용 가능
+    
+    필드:
+    - name: 태그명
+    - slug: URL 친화적 식별자
+    - created_at: 생성일
+    """
+    
+    name = models.CharField(
+        '태그명',
+        max_length=50,
+        unique=True
+    )
+    slug = models.SlugField(
+        '슬러그',
+        max_length=100,
+        unique=True,
+        allow_unicode=True,
+        help_text='URL에 사용될 식별자 (자동 생성)'
+    )
+    created_at = models.DateTimeField(
+        '생성일',
+        auto_now_add=True
+    )
+    
+    class Meta:
+        verbose_name = '태그'
+        verbose_name_plural = '태그 목록'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+    
+    def save(self, *args, **kwargs):
+        """슬러그 자동 생성"""
+        if not self.slug:
+            self.slug = slugify(self.name, allow_unicode=True)
+        super().save(*args, **kwargs)
+    
+    def get_absolute_url(self):
+        return reverse('blog:tag_detail', kwargs={'slug': self.slug})
+    
+    def get_post_count(self):
+        """태그가 붙은 게시글 수"""
+        return self.posts.filter(published=True).count()
+
+
+class PostSeries(models.Model):
+    """
+    게시글 시리즈/연재 모델
+    
+    여러 게시글을 하나의 시리즈로 묶어서 관리
+    
+    필드:
+    - title: 시리즈 제목
+    - slug: URL 친화적 식별자
+    - description: 시리즈 설명
+    - author: 작성자
+    - created_at: 생성일
+    - updated_at: 수정일
+    """
+    
+    title = models.CharField(
+        '시리즈 제목',
+        max_length=200
+    )
+    slug = models.SlugField(
+        '슬러그',
+        max_length=200,
+        unique=True,
+        allow_unicode=True,
+        help_text='URL에 사용될 식별자'
+    )
+    description = models.TextField(
+        '설명',
+        blank=True,
+        help_text='시리즈에 대한 간단한 설명'
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='series',
+        verbose_name='작성자'
+    )
+    created_at = models.DateTimeField(
+        '생성일',
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        '수정일',
+        auto_now=True
+    )
+    
+    class Meta:
+        verbose_name = '시리즈'
+        verbose_name_plural = '시리즈 목록'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return self.title
+    
+    def save(self, *args, **kwargs):
+        """슬러그 자동 생성"""
+        if not self.slug:
+            base_slug = slugify(self.title, allow_unicode=True)
+            timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+            self.slug = f'{base_slug}-{timestamp}'
+        super().save(*args, **kwargs)
+    
+    def get_absolute_url(self):
+        return reverse('blog:series_detail', kwargs={'slug': self.slug})
+    
+    def get_post_count(self):
+        """시리즈 내 게시글 수"""
+        return self.posts.filter(published=True).count()
+    
+    def get_posts(self):
+        """시리즈 내 게시글 목록 (순서대로)"""
+        return self.posts.filter(published=True).order_by('series_order', 'created_at')
 
 
 class Category(models.Model):
@@ -88,10 +216,14 @@ class Post(models.Model):
     - content: 본문 내용
     - author: 작성자 (User FK)
     - category: 카테고리 (Category FK)
+    - tags: 태그 (Tag M2M)
+    - series: 시리즈 (PostSeries FK)
     - thumbnail: 썸네일 이미지
     - published: 발행 여부
+    - is_draft: 임시저장 여부
     - created_at: 생성일
     - updated_at: 수정일
+    - draft_saved_at: 임시저장일
     - views: 조회수
     """
     
@@ -123,6 +255,27 @@ class Post(models.Model):
         related_name='posts',
         verbose_name='카테고리'
     )
+    # 태그 (ManyToMany)
+    tags = models.ManyToManyField(
+        Tag,
+        related_name='posts',
+        blank=True,
+        verbose_name='태그'
+    )
+    # 시리즈 (ForeignKey)
+    series = models.ForeignKey(
+        PostSeries,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
+        verbose_name='시리즈'
+    )
+    series_order = models.PositiveIntegerField(
+        '시리즈 순서',
+        default=0,
+        help_text='시리즈 내 게시글 순서'
+    )
     thumbnail = models.ImageField(
         '썸네일',
         upload_to='posts/thumbnails/%Y/%m/',
@@ -135,6 +288,11 @@ class Post(models.Model):
         default=True,
         help_text='체크 해제 시 비공개 상태'
     )
+    is_draft = models.BooleanField(
+        '임시저장',
+        default=False,
+        help_text='임시저장 상태'
+    )
     created_at = models.DateTimeField(
         '생성일',
         auto_now_add=True
@@ -142,6 +300,12 @@ class Post(models.Model):
     updated_at = models.DateTimeField(
         '수정일',
         auto_now=True
+    )
+    draft_saved_at = models.DateTimeField(
+        '임시저장일',
+        null=True,
+        blank=True,
+        help_text='마지막 임시저장 시간'
     )
     views = models.PositiveIntegerField(
         '조회수',

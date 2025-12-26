@@ -18,7 +18,7 @@ def home_view(request):
     """홈페이지 뷰 - 최신 게시글, 카테고리, 통계 표시"""
     context = {
         'latest_posts': Post.objects.filter(published=True)
-            .select_related('author', 'category')[:6],
+            .select_related('author', 'category')[:4],
         'categories': Category.objects.all(),
         'total_posts': Post.objects.filter(published=True).count(),
         'total_comments': Comment.objects.filter(is_active=True).count(),
@@ -42,6 +42,9 @@ urlpatterns = [
     
     # REST API
     path('api/', include('api.urls')),
+    
+    # Summernote 에디터
+    path('summernote/', include('django_summernote.urls')),
 ]
 
 # 개발 환경에서 미디어 파일 서빙

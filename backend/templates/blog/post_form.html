@@ -2,7 +2,26 @@
 
 {% block title %}{% if object %}게시글 수정{% else %}새 게시글{% endif %}{% endblock %}
 
+{% block extra_css %}
+{{ form.media.css }}
+<style>
+    /* Summernote editor styles */
+    .note-editor.note-frame {
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .note-editor.note-frame .note-statusbar {
+        border-bottom-left-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- jQuery (Summernote dependency) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{{ form.media.js }}
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-lg-8">
@@ -34,6 +53,27 @@
                                     <i class="bi bi-plus-lg"></i>
                                 </a>
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_series" class="form-label">시리즈</label>
+                            <div class="input-group">
+                                {{ form.series }}
+                                <a href="{% url 'blog:series_create' %}" class="btn btn-outline-secondary"
+                                    title="새 시리즈 만들기">
+                                    <i class="bi bi-plus-lg"></i>
+                                </a>
+                            </div>
+                            <div class="form-text">여러 게시글을 시리즈로 묶으려면 시리즈를 선택하세요.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_tags_input" class="form-label">태그</label>
+                            {{ form.tags_input }}
+                            <div class="form-text">{{ form.tags_input.help_text }}</div>
+                            {% if form.tags_input.errors %}
+                            <div class="invalid-feedback d-block">{{ form.tags_input.errors.0 }}</div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">

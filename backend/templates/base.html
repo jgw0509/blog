@@ -85,6 +85,16 @@ Bootstrap 5 적용
                             <i class="bi bi-journals me-1"></i>게시글
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'blog:tag_list' %}">
+                            <i class="bi bi-tags me-1"></i>태그
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'blog:series_list' %}">
+                            <i class="bi bi-collection me-1"></i>시리즈
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- 검색 폼 -->
@@ -99,7 +109,7 @@ Bootstrap 5 적용
                 </form>
 
                 <!-- 오른쪽 메뉴 (사용자) -->
-                <ul class="navbar-nav">
+                <ul class="navbar-nav align-items-center">
                     {% if user.is_authenticated %}
                     <!-- 로그인 상태 -->
                     <li class="nav-item dropdown">
@@ -124,13 +134,31 @@ Bootstrap 5 적용
                                     <i class="bi bi-pencil-square me-2"></i>글쓰기
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounts:notification_list' %}">
+                                    <i class="bi bi-bell me-2"></i>알림
+                                    {% if user.get_unread_notification_count > 0 %}
+                                    <span class="badge bg-danger">{{ user.get_unread_notification_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'blog:draft_list' %}">
+                                    <i class="bi bi-file-earmark-text me-2"></i>임시저장
+                                </a>
+                            </li>
                             {% if user.is_staff %}
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
                             <li>
+                                <a class="dropdown-item" href="{% url 'blog:admin_dashboard' %}">
+                                    <i class="bi bi-speedometer2 me-2"></i>관리자 대시보드
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item" href="{% url 'admin:index' %}">
-                                    <i class="bi bi-gear me-2"></i>관리자
+                                    <i class="bi bi-gear me-2"></i>Django 관리자
                                 </a>
                             </li>
                             {% endif %}
